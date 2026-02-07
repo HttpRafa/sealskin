@@ -836,6 +836,7 @@ async def lifespan(app: FastAPI):
 
     await _inspect_self_container()
     _get_cpu_model()
+    user_manager.set_external_ports(DISCOVERED_API_PORT, DISCOVERED_SESSION_PORT)
     user_manager.load_users_and_groups()
     load_app_configs()
     load_app_templates()

@@ -28,11 +28,18 @@ DEFAULT_USER_SETTINGS = {
 }
 
 SERVER_PUBLIC_KEY_PEM: Optional[str] = None
+EXTERNAL_API_PORT: int = getattr(settings, "api_port", 8000)
+EXTERNAL_SESSION_PORT: int = getattr(settings, "session_port", 8443)
 
 def set_server_public_key(key: str):
     """Sets the server's public key for use in log messages."""
     global SERVER_PUBLIC_KEY_PEM
     SERVER_PUBLIC_KEY_PEM = key
+
+def set_external_ports(api_port: int, session_port: int):
+    global EXTERNAL_API_PORT, EXTERNAL_SESSION_PORT
+    EXTERNAL_API_PORT = api_port
+    EXTERNAL_SESSION_PORT = session_port
 
 def parse_key_file(path: str) -> Tuple[Optional[Dict], Optional[str]]:
     try:
@@ -107,8 +114,8 @@ def _generate_default_admin():
 
     admin_config = {
         "server_endpoint": os.environ.get("HOST_URL", "HOST_URL"),
-        "api_port": getattr(settings, "api_port", 8000),
-        "session_port": getattr(settings, "session_port", 8443),
+        "api_port": EXTERNAL_API_PORT,
+        "session_port": EXTERNAL_SESSION_PORT,
         "username": "admin",
         "private_key": private_pem,
         "server_public_key": SERVER_PUBLIC_KEY_PEM or ""
