@@ -202,6 +202,22 @@ const getAppTemplateSettings = (t) => [
     type: "boolean"
   },
   {
+    name: "SELKIES_CLIPBOARD_OUT_ENABLED",
+    label: t('options.appTemplates.settings.SELKIES_CLIPBOARD_OUT_ENABLED.label'),
+    default: "true",
+    description: t('options.appTemplates.settings.SELKIES_CLIPBOARD_OUT_ENABLED.description'),
+    category: "app",
+    type: "boolean"
+  },
+  {
+    name: "SELKIES_CLIPBOARD_IN_ENABLED",
+    label: t('options.appTemplates.settings.SELKIES_CLIPBOARD_IN_ENABLED.label'),
+    default: "true",
+    description: t('options.appTemplates.settings.SELKIES_CLIPBOARD_IN_ENABLED.description'),
+    category: "app",
+    type: "boolean"
+  },
+  {
     name: "SELKIES_ENABLE_BINARY_CLIPBOARD",
     label: t('options.appTemplates.settings.SELKIES_ENABLE_BINARY_CLIPBOARD.label'),
     default: "false",
