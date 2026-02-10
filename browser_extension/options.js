@@ -1158,7 +1158,7 @@ async function handleLogin() {
     dashboardUsername.textContent = statusData.username;
     dashboardRole.textContent = statusData.is_admin ? t('options.dashboard.roleAdmin') : t('options.dashboard.roleUser');
     dashboardServerIp.textContent = serverIpInput.value.trim();
-    dashboardApiPort.textContent = apiPortInput.value.trim();
+    dashboardApiPort.textContent = sessionPortInput.value.trim();
 
     dashboardCpuModel.textContent = statusData.cpu_model || t('common.na');
     if (statusData.disk_total && statusData.disk_used) {
@@ -1810,6 +1810,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const howToList = document.getElementById('how-to-list');
   if (howToList) {
     howToList.innerHTML = t('options.dashboard.howToList').map(item => `<li>${item}</li>`).join('');
+  }
+
+  if (window.Capacitor) {
+    const searchSelect = document.getElementById('searchEngineDashboard');
+    if (searchSelect) {
+      const formGroup = searchSelect.closest('.form-group');
+      if (formGroup && formGroup.parentElement) {
+        formGroup.parentElement.style.display = 'none';
+      }
+    }
   }
 
   const themeToggle = document.getElementById('theme-toggle');
