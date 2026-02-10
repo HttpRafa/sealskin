@@ -525,8 +525,14 @@
                     </div>
                     <hr class="nav-separator">
                     <div class="card">
-                        <div class="card-header"><h3>General & Performance Settings</h3></div>
+                        <div class="card-header"><h3 data-i18n="options.modals.generalTitle">General & Performance Settings</h3></div>
                         <div id="template-form-general" class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));"></div>
+                    </div>
+                    <hr class="nav-separator">
+                    <div class="card">
+                        <div class="card-header"><h3 data-i18n="options.modals.dockerTitle">Docker Advanced Overrides</h3></div>
+                        <p class="description" style="margin-bottom: 1rem;" data-i18n="options.modals.dockerDescription">These settings override the default container configuration. Use with caution and only if you know what you are doing.</p>
+                        <div id="template-form-docker" class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));"></div>
                     </div>
                 </form>
             </div>
@@ -812,6 +818,7 @@
     <script src="languages.js"></script>
     <script src="translations.js"></script>
     <script src="app_template_settings.js"></script>
+    <script src="docker_template_settings.js"></script>
     <script src="options.js"></script>
 </body>
 </html>

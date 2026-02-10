@@ -418,6 +418,90 @@ async def _inspect_self_container():
                 )
 
 
+def _extract_docker_overrides(settings_dict: dict) -> dict:
+    overrides = {}
+    
+    def parse_list(val):
+        if not val: return []
+        return [x.strip() for x in str(val).split(",") if x.strip()]
+
+    def parse_kv_list(val, separator="="):
+        if not val: return {}
+        res = {}
+        for item in str(val).split(","):
+            if separator in item:
+                k, v = item.split(separator, 1)
+                res[k.strip()] = v.strip()
+        return res
+
+    for k, v in settings_dict.items():
+        if not k.startswith("DOCKER_"):
+            continue
+        
+        val_str = str(v).strip()
+        if not val_str:
+            continue
+
+        if k == "DOCKER_PRIVILEGED":
+            overrides["privileged"] = val_str.lower() == "true"
+        elif k == "DOCKER_CAP_ADD":
+            overrides["cap_add"] = parse_list(val_str)
+        elif k == "DOCKER_CAP_DROP":
+            overrides["cap_drop"] = parse_list(val_str)
+        elif k == "DOCKER_SECURITY_OPT":
+            overrides["security_opt"] = parse_list(val_str)
+        elif k == "DOCKER_DEVICES":
+            overrides["devices"] = parse_list(val_str)
+        elif k == "DOCKER_DNS":
+            overrides["dns"] = parse_list(val_str)
+        elif k == "DOCKER_SHM_SIZE":
+            overrides["shm_size"] = val_str
+        elif k == "DOCKER_MEM_LIMIT":
+            overrides["mem_limit"] = val_str
+        elif k == "DOCKER_CPU_SHARES":
+            try:
+                overrides["cpu_shares"] = int(val_str)
+            except ValueError:
+                pass
+        elif k == "DOCKER_NANO_CPUS":
+            try:
+                overrides["nano_cpus"] = int(val_str)
+            except ValueError:
+                pass
+        elif k == "DOCKER_NETWORK_MODE":
+            overrides["network_mode"] = val_str
+        elif k == "DOCKER_IPC_MODE":
+            overrides["ipc_mode"] = val_str
+        elif k == "DOCKER_PID_MODE":
+            overrides["pid_mode"] = val_str
+        elif k == "DOCKER_GROUP_ADD":
+            overrides["group_add"] = parse_list(val_str)
+        elif k == "DOCKER_EXTRA_HOSTS":
+            overrides["extra_hosts"] = parse_kv_list(val_str, ":")
+        elif k == "DOCKER_SYSCTLS":
+            overrides["sysctls"] = parse_kv_list(val_str, "=")
+        elif k == "DOCKER_ULIMITS":
+            ulimits = []
+            for item in val_str.split(","):
+                if "=" in item:
+                    n, limit = item.split("=", 1)
+                    if ":" in limit:
+                        soft, hard = limit.split(":", 1)
+                        ulimits.append(docker.types.Ulimit(name=n.strip(), soft=int(soft), hard=int(hard)))
+                    else:
+                        ulimits.append(docker.types.Ulimit(name=n.strip(), soft=int(limit), hard=int(limit)))
+            if ulimits:
+                overrides["ulimits"] = ulimits
+        elif k == "DOCKER_TMPFS":
+            overrides["tmpfs"] = parse_kv_list(val_str, ":")
+        elif k == "DOCKER_BIND_MOUNTS":
+            overrides["volumes"] = parse_list(val_str)
+        elif k == "DOCKER_ENV":
+            overrides["environment"] = parse_kv_list(val_str, "=")
+            
+    return overrides
+
+
 def _translate_path_to_host(internal_path: str) -> str:
     if not PATH_PREFIX_MAP or not internal_path:
         return internal_path
@@ -1338,6 +1422,24 @@ async def ensure_container_for_session(session_id: str, target_app_id: str) -> d
             logger.error(f"Failed to inject autostart on swap: {e}")
 
     app_config_dict = _get_app_config_with_overrides(app_config)
+    
+    template_overrides = _extract_docker_overrides(template.get("settings", {}) if template else {})
+    if template_overrides:
+        if "provider_config" not in app_config_dict:
+            app_config_dict["provider_config"] = {}
+        if "docker_overrides" not in app_config_dict["provider_config"]:
+            app_config_dict["provider_config"]["docker_overrides"] = {}
+        
+        for k, v in template_overrides.items():
+            if k == "devices" and "devices" in app_config_dict["provider_config"]["docker_overrides"]:
+                 app_config_dict["provider_config"]["docker_overrides"][k].extend(v)
+            elif k == "volumes" and "volumes" in app_config_dict["provider_config"]["docker_overrides"]:
+                 app_config_dict["provider_config"]["docker_overrides"][k].extend(v)
+            elif k == "environment" and "environment" in app_config_dict["provider_config"]["docker_overrides"]:
+                 app_config_dict["provider_config"]["docker_overrides"][k].update(v)
+            else:
+                 app_config_dict["provider_config"]["docker_overrides"][k] = v
+
     provider = DockerProvider(app_config_dict)
 
     launch_kwargs = {
@@ -1347,6 +1449,7 @@ async def ensure_container_for_session(session_id: str, target_app_id: str) -> d
         "gpu_config": gpu_config,
         "network": DISCOVERED_NETWORK,
     }
+
     if session.get("is_collaboration"):
         mk_owner = session.get("mk_owner_token")
         controller_token = session.get("controller_token")
@@ -1452,8 +1555,16 @@ async def _launch_common(
 
     template_name = app_config.app_template
     template = APP_TEMPLATES.get(template_name)
+    docker_overrides_from_template = {}
+
     if template and template.get("settings"):
-        template_settings = {k: str(v) for k, v in template["settings"].items()}
+        raw_settings = template["settings"]
+        template_settings = {}
+        for k, v in raw_settings.items():
+            if not k.startswith("DOCKER_"):
+                template_settings[k] = str(v)
+        
+        docker_overrides_from_template = _extract_docker_overrides(raw_settings)
         final_env.update(template_settings)
     elif not template:
         logger.warning(
@@ -1470,6 +1581,26 @@ async def _launch_common(
             final_env[env_override.name] = env_override.value
 
     app_config_dict = _get_app_config_with_overrides(app_config)
+
+    if docker_overrides_from_template:
+        if "provider_config" not in app_config_dict:
+            app_config_dict["provider_config"] = {}
+        
+        if "docker_overrides" not in app_config_dict["provider_config"] or app_config_dict["provider_config"]["docker_overrides"] is None:
+            app_config_dict["provider_config"]["docker_overrides"] = {}
+        
+        existing_overrides = app_config_dict["provider_config"]["docker_overrides"]
+        for k, v in docker_overrides_from_template.items():
+            if k == "devices" and existing_overrides.get("devices") is not None:
+                 existing_overrides[k].extend(v)
+            elif k == "volumes" and existing_overrides.get("volumes") is not None:
+                 if isinstance(existing_overrides[k], list) and isinstance(v, list):
+                     existing_overrides[k].extend(v)
+            elif k == "environment" and existing_overrides.get("environment") is not None:
+                 existing_overrides[k].update(v)
+            else:
+                 existing_overrides[k] = v
+
     provider = DockerProvider(app_config_dict)
 
     volumes = {}

@@ -240,8 +240,9 @@ function buildTemplateForm() {
   const appContainer = document.getElementById('template-form-app');
   const hardeningContainer = document.getElementById('template-form-hardening');
   const generalContainer = document.getElementById('template-form-general');
+  const dockerContainer = document.getElementById('template-form-docker');
 
-  [uiContainer, appContainer, hardeningContainer, generalContainer].forEach(c => c.innerHTML = '');
+  [uiContainer, appContainer, hardeningContainer, generalContainer, dockerContainer].forEach(c => { if(c) c.innerHTML = ''; });
 
   APP_TEMPLATE_SETTINGS.forEach(setting => {
     let formElementHtml = '';
@@ -284,6 +285,7 @@ function buildTemplateForm() {
     else if (setting.category === 'app') appContainer.innerHTML += formElementHtml;
     else if (setting.category === 'hardening') hardeningContainer.innerHTML += formElementHtml;
     else if (setting.category === 'general') generalContainer.innerHTML += formElementHtml;
+    else if (setting.category === 'docker') dockerContainer.innerHTML += formElementHtml;
   });
 }
 
@@ -1803,9 +1805,8 @@ async function openTab(tabName) {
 document.addEventListener('DOMContentLoaded', async () => {
   const translator = getTranslator(navigator.language);
   t = translator.t;
-  APP_TEMPLATE_SETTINGS = getAppTemplateSettings(t);
+  APP_TEMPLATE_SETTINGS = [...getAppTemplateSettings(t), ...getDockerTemplateSettings(t)];
   applyTranslations(document, t);
-
   const howToList = document.getElementById('how-to-list');
   if (howToList) {
     howToList.innerHTML = t('options.dashboard.howToList').map(item => `<li>${item}</li>`).join('');
